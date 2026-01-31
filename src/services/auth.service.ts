@@ -4,8 +4,6 @@ import {Signup} from "../models/signup.model";
 import {Login} from "../models/login.model";
 import {randomUUID} from "node:crypto";
 import * as TokenService from '../services/token.service';
-import * as CredentialRepository from '../repositories/credential.repository';
-import * as UserRepository from '../repositories/user.repository';
 import * as CredentialService from '../services/credential.service';
 import * as UserService from '../services/user.service';
 import {User} from "../models/user.model";
@@ -68,7 +66,7 @@ export async function login(model: Login, req: Request): Promise<string> {
     let credential: Credential | undefined = undefined;
 
     try {
-        credential = await CredentialRepository.findSingleByCriteria(credentialCriteria);
+        credential = await CredentialService.findSingleByCriteria(credentialCriteria);
     } catch (e) {
         throw new InvalidLoginError();
     }
@@ -79,7 +77,7 @@ export async function login(model: Login, req: Request): Promise<string> {
 
     const userCriteria: UserCriteria = new UserCriteria();
     userCriteria.credentialId = credential.id;
-    const user: User = await UserRepository.findSingleByCriteria(userCriteria);
+    const user: User = await UserService.findSingleByCriteria(userCriteria);
 
     if (
         user.deleted === true ||
@@ -128,7 +126,7 @@ export async function resetPassword(userId: number, password: string): Promise<v
     const userCriteria: UserCriteria = new UserCriteria();
     userCriteria.id = userId;
     userCriteria.fetch = [UserForeignKeys.CREDENTIAL];
-    const user: User = await UserRepository.findSingleByCriteria(userCriteria);
+    const user: User = await UserService.findSingleByCriteria(userCriteria);
 
     assert.ok(user.credential);
 
@@ -141,7 +139,7 @@ export async function checkEmail(email: string): Promise<boolean> {
     const credentialCriteria: CredentialCriteria = new CredentialCriteria();
     credentialCriteria.email = email;
     try {
-        await CredentialRepository.findSingleByCriteria(credentialCriteria);
+        await CredentialService.findSingleByCriteria(credentialCriteria);
     } catch (e: any) {
         if (e.name === ResourceNotFoundError.NAME) {
             return true;
@@ -156,7 +154,7 @@ export async function checkUsername(displayName: string): Promise<boolean> {
     const userCriteria: UserCriteria = new UserCriteria();
     userCriteria.displayName = displayName;
     try {
-        await UserRepository.findSingleByCriteria(userCriteria);
+        await UserService.findSingleByCriteria(userCriteria);
     } catch (e: any) {
         if (e.name === ResourceNotFoundError.NAME) {
             return true;

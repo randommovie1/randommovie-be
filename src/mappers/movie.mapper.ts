@@ -1,6 +1,6 @@
 import {MovieDto} from "../dtos/movie.dto";
 import {Movie} from "../models/movie.model";
-import {TheMovieDbMovie} from "../models/themoviedb/the-movie-db-movie.model";
+import {TheMovieDbMovie} from "../models/themoviedb/discover-movie-response.model";
 
 export function toDto(model: Movie): MovieDto {
     const dto: MovieDto = new MovieDto();

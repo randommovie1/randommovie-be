@@ -1,15 +1,21 @@
 import assert from "assert";
 import * as MovieRepository from "../repositories/movie.repository";
 import {MovieCriteria} from "../criterias/movie.criteria";
-import * as TheMovieDbService from "../services/the-movie-db.service"
+import * as TheMovieDbService from "../clients/the-movie-db.client"
 import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 import {MovieForeignKeys} from "../fetches/movie.fetch";
 import {Movie} from "../models/movie.model";
 import {fromTheMovieDbToMovie} from "../mappers/movie.mapper";
-import {TheMovieDbMovie} from "../models/themoviedb/the-movie-db-movie.model";
+import {TheMovieDbMovie} from "../models/themoviedb/discover-movie-response.model";
 
 export async function findSingleByCriteria(criteria: MovieCriteria): Promise<Movie> {
-    return await MovieRepository.findSingleByCriteria(criteria);
+    const result: Movie[] = await findByCriteria(criteria);
+
+    if (result.length == 0) {
+        throw new ResourceNotFoundError();
+    }
+
+    return result[0];
 }
 
 export async function findByCriteria(criteria: MovieCriteria): Promise<Movie[]> {

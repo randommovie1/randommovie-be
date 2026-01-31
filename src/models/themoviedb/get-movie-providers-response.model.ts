@@ -15,9 +15,7 @@ export interface CountryProviders {
 
 export class GetMovieProvidersResponse {
     public id: number | undefined = undefined;
-    public results: {
-        [key: string]: CountryProviders
-    } | undefined = undefined;
+    public results: Map<string, CountryProviders> | undefined = undefined;
 
     constructor(object?: any) {
         if (object != null) {

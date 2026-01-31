@@ -11,8 +11,8 @@ node_modules
 .idea
 dist
 # Local env files
-.env.dev
-.env.*
-!.env.example
+#.env.dev
+#.env.*
+#!.env.example
 
 /package-lock.json

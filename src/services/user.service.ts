@@ -4,10 +4,25 @@ import {UserCriteria} from "../criterias/user.criteria";
 import {UserForeignKeys} from "../fetches/user.fetch";
 import {CredentialForeignKeys} from "../fetches/credential.fetch";
 import assert from "assert";
+import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 
 export async function save(model: User): Promise<User> {
     assert.ok(model.id == null);
     return await UserRepository.save(model);
+}
+
+export async function findByCriteria(criteria: UserCriteria): Promise<User[]> {
+    return await UserRepository.findByCriteria(criteria);
+}
+
+export async function findSingleByCriteria(criteria: UserCriteria): Promise<User> {
+    const result: User[] = await findByCriteria(criteria);
+
+    if (result.length == 0) {
+        throw new ResourceNotFoundError();
+    }
+
+    return result[0];
 }
 
 export async function getUserById(id: number): Promise<User> {
@@ -17,7 +32,7 @@ export async function getUserById(id: number): Promise<User> {
         UserForeignKeys.CREDENTIAL,
         CredentialForeignKeys.TOKEN,
     ]
-    return await UserRepository.findSingleByCriteria(userCriteria);
+    return await findSingleByCriteria(userCriteria);
 }
 
 export async function update(model: User): Promise<User> {
@@ -32,7 +47,7 @@ export async function deleteUser(id: number): Promise<void> {
         UserForeignKeys.CREDENTIAL,
         CredentialForeignKeys.TOKEN
     ];
-    const user: User = await UserRepository.findSingleByCriteria(userCriteria);
+    const user: User = await findSingleByCriteria(userCriteria);
     user.deleted = true;
     await update(user);
 }

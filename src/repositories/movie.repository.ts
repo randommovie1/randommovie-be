@@ -2,7 +2,6 @@ import * as db from "../services/database.service";
 import {ResultSetHeader, RowDataPacket} from "mysql2/promise";
 import {MovieCriteria} from "../criterias/movie.criteria";
 import {Movie} from "../models/movie.model";
-import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 import {MovieFetch} from "../fetches/movie.fetch";
 import {SqlCache, SqlCacheKey} from "../shared/sql-cache.shared";
 
@@ -64,16 +63,6 @@ export async function findByCriteria(criteria: MovieCriteria): Promise<Movie[]> 
 
         return model;
     }));
-}
-
-export async function findSingleByCriteria(criteria: MovieCriteria): Promise<Movie> {
-    const result: Movie = await findByCriteria(criteria).then(res => res[0]);
-
-    if (result == undefined) {
-        throw new ResourceNotFoundError();
-    }
-
-    return result;
 }
 
 export async function findMoviesToWatchLaterByUserId(userId: number): Promise<number[]> {

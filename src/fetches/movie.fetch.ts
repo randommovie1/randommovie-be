@@ -1,5 +1,5 @@
 import {FetchInterface} from "./fetch.interface";
-import * as TheMovieDbService from '../services/the-movie-db.service';
+import * as TheMovieDbService from '../clients/the-movie-db.client';
 import assert from "assert";
 import {Movie} from "../models/movie.model";
 

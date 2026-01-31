@@ -1,6 +1,6 @@
 import {FetchInterface} from "./fetch.interface";
 import {User} from "../models/user.model";
-import * as CredentialRepository from "../repositories/credential.repository";
+import * as CredentialService from "../services/credential.service";
 import {CredentialCriteria} from "../criterias/credential.criteria";
 import * as MovieService from "../services/movie.service";
 import assert from "assert";
@@ -21,7 +21,7 @@ export class UserFetch implements FetchInterface<User> {
             const credentialCriteria: CredentialCriteria = new CredentialCriteria();
             credentialCriteria.id = model.credential?.id;
             credentialCriteria.fetch = keys;
-            model.credential = await CredentialRepository.findSingleByCriteria(credentialCriteria);
+            model.credential = await CredentialService.findSingleByCriteria(credentialCriteria);
         }
 
         if (keys.includes(UserForeignKeys.MOVIES_TO_WATCH_LATER)) {

@@ -1,11 +1,11 @@
-import {FindMovieQueryParams} from "../models/themoviedb/find-movie-query-params.model";
+import {DiscoverMovieParams} from "../models/themoviedb/discover-movie-params.model";
 
 declare module 'express-session' {
     interface SessionData {
-        userId: number;
-        queryParams: FindMovieQueryParams;
-        totalPages: number,
-        // Use CurrentSession.getCurrentSession().country to get session country
-        country: string
+        userId: number | undefined;
+        queryParams: DiscoverMovieParams| undefined;
+        // Questo campo memorizza il numero di pagine totali per la queryParams.
+        totalPages: number | undefined,
+        country: string | undefined,
     }
 }

@@ -3,7 +3,6 @@ import * as db from '../services/database.service';
 import {ResultSetHeader, RowDataPacket} from "mysql2/promise";
 import {CredentialCriteria} from "../criterias/credential.criteria";
 import {CredentialFetch} from "../fetches/credential.fetch";
-import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 
 export async function save(model: Credential): Promise<Credential> {
     const query: string =
@@ -81,14 +80,4 @@ export async function findByCriteria(criteria: CredentialCriteria): Promise<Cred
 
         return model;
     }));
-}
-
-export async function findSingleByCriteria(criteria: CredentialCriteria): Promise<Credential> {
-    const result: Credential = await findByCriteria(criteria).then(res => res[0]);
-
-    if (result == undefined) {
-        throw new ResourceNotFoundError();
-    }
-
-    return result;
 }

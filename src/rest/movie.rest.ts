@@ -1,13 +1,11 @@
 import {Session, SessionData} from "express-session";
-import {FindMovieQueryParams} from "../models/themoviedb/find-movie-query-params.model";
-import {_parseInt, getRandomNumber} from "../utils/math.utils";
 import assert from "assert";
-import {FindMoviesResponse} from "../models/themoviedb/find-movie-response.model";
-import {TheMovieDbMovie} from "../models/themoviedb/the-movie-db-movie.model";
-import {GetMovieProvidersResponse} from "../models/themoviedb/get-movie-providers-response.model";
+import {
+    GetMovieProvidersResponse,
+} from "../models/themoviedb/get-movie-providers-response.model";
 import {GetMovieCreditsResponse} from "../models/themoviedb/get-movie-credits-response.model";
 import {app} from "../server";
-import * as TheMovieDbService from "../services/the-movie-db.service";
+import * as TheMovieDbService from "../clients/the-movie-db.client";
 import {asyncHandler} from "../configs/middleware.config";
 import {authFilter} from "../services/auth.service";
 import {StatusCodes} from "http-status-codes";
@@ -15,14 +13,16 @@ import * as MovieService from '../services/movie.service'
 import {fromTheMovieDbToMovieDto, toDto} from "../mappers/movie.mapper";
 import {CurrentSession} from "../shared/current-session.shared";
 import {Movie} from "../models/movie.model";
-import {getUserIgnoredMovies, getUserMoviesToWatchLater} from "../services/movie.service";
 import {MovieDto} from "../dtos/movie.dto";
 import {GetMovieVideosResponse} from "../models/themoviedb/get-movie-videos-response.model";
+import {DiscoverMovieParams} from "../models/themoviedb/discover-movie-params.model";
+import {getRandomNumber} from "../utils/math.utils";
+import {TheMovieDbMovie} from "../models/themoviedb/discover-movie-response.model";
 
 const PATH: string = 'movie'
 
 const MAX_PAGE: number = 500;
-const MAX_TRY: number = 10;
+const MAX_ATTEMPTS: number = 5;
 
 export function setup(): void {
     app.get(`/${PATH}`, asyncHandler(async (req, res) => {
@@ -32,116 +32,44 @@ export function setup(): void {
 
         assert.ok(session);
 
-        const sessionCountry: string = CurrentSession.getInstance().country;
-
-        const queryParams: FindMovieQueryParams = new FindMovieQueryParams(req.query);
+        const queryParams: DiscoverMovieParams = new DiscoverMovieParams(req.query);
         queryParams.with_watch_monetization_types = 'flatrate';
 
-        // Se è la prima richiesta di una nuova sessione (session.queryParams === undefined)
-        // oppure se è una richiesta diversa dalla precedente ma di una sessione già attiva (session.queryParams !== undefined),
-        // allora devo mettere session.totalPages = 1
-        if (JSON.stringify(queryParams) !== JSON.stringify(session.queryParams)) {
-            session.totalPages = 1;
+        // If session.queryParams is null/undefined (first session attempt), then this check returns false.
+        const isParamsChanged: boolean = JSON.stringify(queryParams) !== JSON.stringify(session.queryParams);
+
+        if (isParamsChanged) {
+            session.queryParams = new DiscoverMovieParams(queryParams);
+            session.totalPages = (await TheMovieDbService.discoverMovie(queryParams)).total_pages;
         }
 
-        session.queryParams = new FindMovieQueryParams(queryParams);
+        let result: MovieDto | undefined = undefined;
 
-        // Setto quindi una pagina casuale nelle query params
-        assert.ok(session.totalPages);
-        queryParams.page = getRandomNumber(session.totalPages) + 1;
+        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+            // Sets a random page between
+            queryParams.page = getRandomNumber(session.totalPages!) + 1;
 
-        // Se queryParams.page > MAX_PAGE, allora correggo e prendo una pagina compresa nel valore massimo consentito
-        // Il motivo di questo è qui: https://www.themoviedb.org/talk/625e24be87e63e00674af359
-        if (queryParams.page > MAX_PAGE) {
-            queryParams.page = getRandomNumber(MAX_PAGE) + 1;
-        }
-
-        let sendRequest: boolean = true;
-
-        let _try1: number = 0;
-        let movie: MovieDto | null = null;
-
-        do {
-            // Interrogo il DB con le queryParams finché non trovo un risultato coincidente
-            let response: FindMoviesResponse = await TheMovieDbService.finMoviesByQueryParams(queryParams);
-
-            // Se ci sono risultati...
-            if (response.total_results !== undefined && response.total_results > 0) {
-
-                // Setto le pagine totali nella sessione in modo che al
-                session.totalPages = response.total_pages;
-
-                const userId: number | undefined = CurrentSession.getInstance().getUserId();
-
-                // Se l'utente è loggato, allora...
-                if (userId != null) {
-                    const ignoredMovieIds: (number | undefined)[] =
-                        await getUserIgnoredMovies(userId)
-                            .then(res => res.map(i => i.externalId));
-
-                    let _try2: number = 0;
-                    let ignored: boolean = true;
-
-                    let extMovie: TheMovieDbMovie | undefined = undefined;
-
-                    // Prendo un film scelto a caso e controllo che non sia nella lista dei film ignorati utente.
-                    // Fino ad un massimo di 5 tentativi
-                    while (_try2 < MAX_TRY && ignored) {
-                        extMovie = response.results[getRandomNumber(response.results.length)];
-                        ignored = ignoredMovieIds.includes(extMovie.id);
-                        _try2++;
-                    }
-
-                    // Se il film non è stato ignorato, allora procedo a prenderne i dettagli, altrimenti ?? (non definito)
-                    if (!ignored) {
-                        movie = fromTheMovieDbToMovieDto(await TheMovieDbService.getMovieDetails(extMovie!.id));
-
-                        const sessionUserId: number | undefined = CurrentSession.getInstance().getUserId();
-
-                        if (sessionUserId != null) {
-                            const toWatchLater: Movie[] = await getUserMoviesToWatchLater(CurrentSession.getInstance().getUserId()!);
-                            movie.watchLater = toWatchLater.map(i => i.externalId).includes(extMovie!.id);
-                        }
-                    }
-                } else {
-                    // Prendo un film scelto a caso
-                    const extMovie: TheMovieDbMovie = response.results[getRandomNumber(response.results.length)];
-
-                    // Prendo i providers
-                    const providersResponse: GetMovieProvidersResponse = await TheMovieDbService.getMovieProviders(extMovie.id!);
-
-                    if (providersResponse.results !== undefined && Object.keys(providersResponse.results).length > 0) {
-                        const country = providersResponse.results[sessionCountry];
-                        if (country !== undefined) {
-                            const flatrate = country['flatrate']
-                            if (flatrate !== undefined && flatrate.length > 0) {
-                                if (queryParams.with_watch_providers !== undefined && queryParams.with_watch_providers.length > 0) {
-                                    const foo: number[] = queryParams.with_watch_providers.split('|').map(i => _parseInt(i)!);
-                                    const isGood: boolean = flatrate.some(value => foo.includes(value.provider_id!));
-                                    if (isGood) {
-                                        // Prendo i dettagli del film scelto a caso
-                                        movie = fromTheMovieDbToMovieDto(await TheMovieDbService.getMovieDetails(extMovie.id));
-                                        sendRequest = false;
-                                    }
-                                } else {
-                                    // Prendo i dettagli del film scelto a caso
-                                    movie = fromTheMovieDbToMovieDto(await TheMovieDbService.getMovieDetails(extMovie.id));
-                                    sendRequest = false;
-                                }
-                            }
-                        }
-                    }
-                }
+            // Checks if page exceed a MAX_PAGE
+            if (queryParams.page > MAX_PAGE) {
+                queryParams.page = getRandomNumber(MAX_PAGE) + 1;
             }
-            _try1++;
-        } while (_try1 < MAX_TRY && sendRequest)
 
-        if (movie === null) {
-            const timestamp: string = new Date().toISOString();
-            console.log(`[INFO] <${timestamp}> No movies found!`);
+            let movie: TheMovieDbMovie | undefined = await TheMovieDbService.findMovie(queryParams);
+
+            if (movie) {
+                result = fromTheMovieDbToMovieDto(movie);
+                break;
+            }
+            
+            i++;
         }
 
-        res.json(movie);
+        if (result === undefined) {
+            const timestamp: string = new Date().toISOString();
+            console.log(`[INFO] <${timestamp}> No movies found! Max attempts: ${MAX_ATTEMPTS}.`);
+        }
+
+        res.json(result);
     }));
 
     app.get(`/${PATH}/details/:movieId`, asyncHandler(async (req, res) => {
@@ -185,7 +113,7 @@ export function setup(): void {
         const movieId: number = parseInt(<string>req.params['movieId']);
         const response: GetMovieProvidersResponse = await TheMovieDbService.getMovieProviders(movieId);
         const country: string = CurrentSession.getInstance().country;
-        res.json(response.results?.[country] ?? null);
+        res.json(response.results?.get(country) ?? null);
     }));
 
     app.get(`/${PATH}/:movieId/credits`, asyncHandler(async (req, res) => {

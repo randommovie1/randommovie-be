@@ -3,7 +3,6 @@ import * as db from '../services/database.service';
 import {ResultSetHeader, RowDataPacket} from "mysql2/promise";
 import {UserCriteria} from "../criterias/user.criteria";
 import {UserFetch} from "../fetches/user.fetch";
-import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 
 export async function save(model: User): Promise<User> {
     const query: string =
@@ -71,14 +70,4 @@ export async function findByCriteria(criteria: UserCriteria): Promise<User[]> {
 
         return model;
     }));
-}
-
-export async function findSingleByCriteria(criteria: UserCriteria): Promise<User> {
-    const result: User = await findByCriteria(criteria).then(res => res[0]);
-
-    if (result == undefined) {
-        throw new ResourceNotFoundError();
-    }
-
-    return result;
 }

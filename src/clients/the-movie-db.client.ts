@@ -1,17 +1,18 @@
 import {GetMovieCreditsResponse} from '../models/themoviedb/get-movie-credits-response.model';
 import {SearchPersonResponse} from '../models/themoviedb/search-person-response.model';
 import {Person} from '../models/person.model';
-import {TheMovieDbMovie} from '../models/themoviedb/the-movie-db-movie.model';
 import {Keyword} from '../models/themoviedb/keyword.model';
 import {SearchKeywordResponse} from '../models/themoviedb/search-keyword-response.model';
-import {FindMovieQueryParams} from '../models/themoviedb/find-movie-query-params.model';
-import {FindMoviesResponse} from '../models/themoviedb/find-movie-response.model';
 import {GetMovieProvidersResponse} from '../models/themoviedb/get-movie-providers-response.model';
 import axios from 'axios';
 import assert from 'assert';
 import {CurrentSession} from "../shared/current-session.shared";
 import {getLanguageFromCountryCode} from "../utils/location.utils";
 import {GetMovieVideosResponse} from "../models/themoviedb/get-movie-videos-response.model";
+import {DiscoverMovieParams} from "../models/themoviedb/discover-movie-params.model";
+import {DiscoverMovieResponse, TheMovieDbMovie} from "../models/themoviedb/discover-movie-response.model";
+import * as MovieService from "../services/movie.service";
+import {getRandomNumber} from "../utils/math.utils";
 
 const AUTH: string = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzMTQwZTczZTBmYjBjM2Y4NDM2NTliZTVkYzgwOGIyOSIsIm5iZiI6MTcyMjg3NDQwNS4zNzEyMiwic3ViIjoiNjZiMGY4N2VmY2QwMTlkODk5ZjQ4ZmYxIiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.ALVzLp8MT3l9TkMZhgy0J9E2BWqyDh1Wb-7B0hgzhqY';
 /** max page themovedb can accept */
@@ -33,7 +34,7 @@ export async function getMovieProviders(id: number): Promise<GetMovieProvidersRe
     return new GetMovieProvidersResponse(response.data);
 }
 
-export async function finMoviesByQueryParams(params: FindMovieQueryParams): Promise<FindMoviesResponse> {
+export async function discoverMovie(params: DiscoverMovieParams): Promise<DiscoverMovieResponse> {
     const response = await axios.get('https://api.themoviedb.org/3/discover/movie', {
         params: params,
         headers: {
@@ -42,7 +43,7 @@ export async function finMoviesByQueryParams(params: FindMovieQueryParams): Prom
         }
     });
 
-    return new FindMoviesResponse(response.data);
+    return new DiscoverMovieResponse(response.data);
 }
 
 export async function doSearchPerson(name: string): Promise<Person[]> {
@@ -177,4 +178,31 @@ export async function getMoviePoster(path: string): Promise<string> {
         }
     });
     return Buffer.from(response.data, 'binary').toString('base64');
+}
+
+export async function findMovie(params: DiscoverMovieParams): Promise<TheMovieDbMovie | undefined> {
+    let result: TheMovieDbMovie | undefined = undefined;
+
+    let response: DiscoverMovieResponse = await discoverMovie(params);
+
+    if (response && response.total_results && response.total_results > 0) {
+        const userId: number | undefined = CurrentSession.getInstance().getUserId();
+
+        // If user is logged then...
+        if (userId) {
+            // Retrive user's ignored movie list
+            const ignoredMovieIds: (number | undefined)[] = await MovieService.getUserIgnoredMovies(userId).then(res => res.map(i => i.externalId));
+
+            for (const _movie of response.results) {
+                if (!ignoredMovieIds.includes(_movie.id)) {
+                    result = _movie;
+                    break;
+                }
+            }
+        } else {
+            // Picks a random movie from results
+            result = response.results[getRandomNumber(response.results.length)];
+        }
+    }
+    return result;
 }

@@ -1,5 +1,5 @@
 import {FetchInterface} from "./fetch.interface";
-import * as TokenRepository from "../repositories/token.repository";
+import * as TokenService from "../services/token.service";
 import {TokenCriteria} from "../criterias/token.criteria";
 import {Credential} from "../models/credential.model";
 
@@ -16,7 +16,7 @@ export class CredentialFetch implements FetchInterface<Credential> {
         if (keys.includes(CredentialForeignKeys.TOKEN)) {
             const tokenCriteria: TokenCriteria = new TokenCriteria();
             tokenCriteria.id = model.token?.id;
-            model.token = await TokenRepository.findSingleByCriteria(tokenCriteria);
+            model.token = await TokenService.findSingleByCriteria(tokenCriteria);
         }
         return model;
     }

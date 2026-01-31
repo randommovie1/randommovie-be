@@ -1,7 +1,7 @@
 import {Person} from "../models/person.model";
 import {app} from "../server";
 import assert from "assert";
-import * as TheMovieDbService from "../services/the-movie-db.service";
+import * as TheMovieDbService from "../clients/the-movie-db.client";
 import {asyncHandler} from "../configs/middleware.config";
 
 const PATH: string = 'person'

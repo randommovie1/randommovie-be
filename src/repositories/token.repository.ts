@@ -2,7 +2,6 @@ import {Token} from "../models/token.model";
 import * as db from '../services/database.service';
 import {ResultSetHeader, RowDataPacket} from "mysql2/promise";
 import {TokenCriteria} from "../criterias/token.criteria";
-import {ResourceNotFoundError} from "../errors/resource-not-found.error";
 
 export async function save(model: Token): Promise<Token> {
     const query: string =
@@ -59,14 +58,4 @@ export async function findByCriteria(criteria: TokenCriteria): Promise<Token[]> 
     );
 
     return queryResult[0].map(res => Token.fromResultSet(res));
-}
-
-export async function findSingleByCriteria(criteria: TokenCriteria): Promise<Token> {
-    const result: Token = await findByCriteria(criteria).then(res => res[0]);
-
-    if (result == undefined) {
-        throw new ResourceNotFoundError();
-    }
-
-    return result;
 }
